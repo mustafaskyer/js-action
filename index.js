@@ -1,21 +1,36 @@
-const core = require('@actions/core');
-const wait = require('./wait');
+const core = require("@actions/core");
+const github = require("@actions/github");
 
+try {
+  // @Main
+  const token = core.getInput("token");
+  const title = core.getInput("title");
+  const body = core.getInput("body");
+  /** assignees in out inputs can not be an array only a string */
+  const assignees = core.getInput("assignees");
 
-// most @actions toolkit packages have async methods
-async function run() {
-  try {
-    const ms = core.getInput('milliseconds');
-    core.info(`Waiting ${ms} milliseconds ...`);
+  // @Sending Request
+  // api github rest api => https://octokit.github.io/rest.js/v18
+  // this is by default built in @actions/github
+  const octokit = github.getOctokit(token);
+  const { owner, repo } = github.context.repo;
+  octokit.rest.issues.create({
+    owner,
+    repo,
+    title,
+    body,
+    assignees: assignees ? assignees.split(",") : [],
+  }).then((res) => {
+    core.startGroup('Logging Response');
+    console.log(JSON.stringify(res.data, null, 4));
+    core.endGroup();
 
-    core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    await wait(parseInt(ms));
-    core.info((new Date()).toTimeString());
+    core.setOutput("issue", JSON.stringify(res.data));
+  }).catch((e) => {
+    console.log(e);
+    core.setFailed(e.message);
+  })
 
-    core.setOutput('time', new Date().toTimeString());
-  } catch (error) {
-    core.setFailed(error.message);
-  }
+} catch (error) {
+  core.setFailed(error.message);
 }
-
-run();
